@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import SearchBar from '../SearchBar/SearchBar';
 import MovieGrid from '../MovieGrid/MovieGrid';
@@ -22,20 +22,20 @@ function App() {
 
   const [query, setQuery] = useState('');
 
-  const { data, isLoading, isError, isFetching } = useQuery({
+  const { data, isLoading, isError, isFetching, isSuccess } = useQuery({
     queryKey: ['movies', query, page],
 
-    queryFn: async () => {
-      const result = await searchMovies(query, page);
-      if (result.results.length === 0) {
-        toast.error('No movies found for your request.');
-      }
-      return result;
-    },
+    queryFn: () => searchMovies(query, page),
 
     enabled: query.length > 0,
     placeholderData: keepPreviousData,
   });
+
+  useEffect(() => {
+    if (isSuccess && data?.results.length === 0) {
+      toast.error('No movies found for your request.');
+    }
+  }, [isSuccess, data, query]);
 
   const handleSearch = (newQuery: string) => {
     const trimmed = newQuery.trim();
@@ -50,7 +50,9 @@ function App() {
 
   return (
     <>
+      {isLoading || (isFetching && <Loader />)}
       <SearchBar onSubmit={handleSearch} />
+
       {query && data?.total_pages && data.total_pages > 1 && (
         <Paginate
           pageCount={data.total_pages}
@@ -66,26 +68,11 @@ function App() {
           previousLabel="←"
         />
       )}
-      {isLoading || (isFetching && <Loader />)}
+
       {isError ? (
         <ErrorMessage />
       ) : (
         <MovieGrid movies={data?.results || []} onSelect={setSelectedMovie} />
-      )}
-      {query && data?.total_pages && data.total_pages > 1 && (
-        <Paginate
-          pageCount={data.total_pages}
-          pageRangeDisplayed={5}
-          marginPagesDisplayed={1}
-          onPageChange={({ selected }: { selected: number }) =>
-            setPage(selected + 1)
-          }
-          forcePage={page - 1}
-          containerClassName={css.pagination}
-          activeClassName={css.active}
-          nextLabel="→"
-          previousLabel="←"
-        />
       )}
 
       {selectedMovie && (
